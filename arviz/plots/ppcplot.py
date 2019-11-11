@@ -15,13 +15,14 @@ from .plot_utils import (
     filter_plotters_list,
 )
 from ..utils import _var_names
+from ..stats.stats_utils import histogram
 
 _log = logging.getLogger(__name__)
 
 
 def plot_ppc(
     data,
-    kind="density",
+    kind="kde",
     alpha=None,
     mean=True,
     figsize=None,
@@ -48,9 +49,9 @@ def plot_ppc(
         InferenceData object containing the observed and posterior
         predictive data.
     kind : str
-        Type of plot to display (density, cumulative, or scatter). Defaults to density.
+        Type of plot to display (kde, cumulative, or scatter). Defaults to kde.
     alpha : float
-        Opacity of posterior predictive density curves. Defaults to 0.2 for kind = density
+        Opacity of posterior predictive density curves. Defaults to 0.2 for kind = kde
         and cumulative, for scatter defaults to 0.7
     mean : bool
         Whether or not to plot the mean posterior predictive distribution. Defaults to True
@@ -156,8 +157,8 @@ def plot_ppc(
                 '`data` argument must have the group "{group}" for ppcplot'.format(group=group)
             )
 
-    if kind.lower() not in ("density", "cumulative", "scatter"):
-        raise TypeError("`kind` argument must be either `density`, `cumulative`, or `scatter`")
+    if kind.lower() not in ("kde", "cumulative", "scatter"):
+        raise TypeError("`kind` argument must be either `kde`, `cumulative`, or `scatter`")
 
     if data_pairs is None:
         data_pairs = {}
@@ -284,7 +285,7 @@ def plot_ppc(
         pp_vals = pp_vals.reshape(total_pp_samples, -1)
         pp_sampled_vals = pp_vals[pp_sample_ix]
 
-        if kind == "density":
+        if kind == "kde":
             plot_kwargs = {"color": "C5", "alpha": alpha, "linewidth": 0.5 * linewidth}
             if dtype == "i":
                 plot_kwargs["drawstyle"] = "steps-pre"
@@ -301,7 +302,7 @@ def plot_ppc(
                 )
             else:
                 bins = get_bins(obs_vals)
-                hist, bin_edges = np.histogram(obs_vals, bins=bins, density=True)
+                hist, bin_edges = histogram(obs_vals, bins=bins)
                 hist = np.concatenate((hist[:1], hist))
                 ax_i.plot(
                     bin_edges,
@@ -324,7 +325,7 @@ def plot_ppc(
                     pp_xs.append(pp_x)
                 else:
                     bins = get_bins(vals)
-                    hist, bin_edges = np.histogram(vals, bins=bins, density=True)
+                    hist, bin_edges = histogram(vals, bins=bins)
                     hist = np.concatenate((hist[:1], hist))
                     pp_densities.append(hist)
                     pp_xs.append(bin_edges)
@@ -364,7 +365,7 @@ def plot_ppc(
                 else:
                     vals = pp_vals.flatten()
                     bins = get_bins(vals)
-                    hist, bin_edges = np.histogram(vals, bins=bins, density=True)
+                    hist, bin_edges = histogram(vals, bins=bins)
                     hist = np.concatenate((hist[:1], hist))
                     ax_i.plot(
                         bin_edges,
@@ -440,7 +441,7 @@ def plot_ppc(
                 else:
                     vals = pp_vals.flatten()
                     bins = get_bins(vals)
-                    hist, bin_edges = np.histogram(vals, bins=bins, density=True)
+                    hist, bin_edges = histogram(vals, bins=bins)
                     hist = np.concatenate((hist[:1], hist))
                     ax_i.plot(
                         bin_edges,
@@ -530,7 +531,7 @@ def _set_animation(
     markersize=None,
     plot_kwargs=None,
 ):
-    if kind == "density":
+    if kind == "kde":
         length = len(pp_sampled_vals)
         if dtype == "f":
             y_vals, lower, upper = _fast_kde(pp_sampled_vals[0])
@@ -550,20 +551,17 @@ def _set_animation(
 
         else:
             vals = pp_sampled_vals[0]
-            y_vals, x_vals = np.histogram(vals, bins="auto", density=True)
+            y_vals, x_vals = histogram(vals, bins="auto")
             (line,) = ax.plot(x_vals[:-1], y_vals, **plot_kwargs)
 
             max_max = max(
-                [
-                    max(np.histogram(pp_sampled_vals[i], bins="auto", density=True)[0])
-                    for i in range(length)
-                ]
+                [max(histogram(pp_sampled_vals[i], bins="auto")[0]) for i in range(length)]
             )
 
             ax.set_ylim(0, max_max)
 
             def animate(i):
-                y_vals, x_vals = np.histogram(pp_sampled_vals[i], bins="auto", density=True)
+                y_vals, x_vals = histogram(pp_sampled_vals[i], bins="auto")
                 line.set_data(x_vals[:-1], y_vals)
                 return (line,)
 
